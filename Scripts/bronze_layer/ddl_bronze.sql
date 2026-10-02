@@ -34,7 +34,7 @@ CREATE TABLE bronze.orders (
     order_approved_at nvarchar(50),
     order_delivered_carrier_date nvarchar(50),
     order_delivered_customer_date nvarchar(50),
-    order_estimated_delivery_date nvarchar(50)
+    order_estimated_delivery_date nvarchar(max)
 );
 
 GO
@@ -50,7 +50,7 @@ CREATE TABLE bronze.order_items (
     seller_id nvarchar(100),
     shipping_limit_date nvarchar(50),
     price nvarchar(50),
-    freight_value nvarchar(50)
+    freight_value nvarchar(100)
 );
 GO
 
@@ -63,7 +63,7 @@ CREATE TABLE bronze.order_payments (
     payment_sequential nvarchar(20),
     payment_type nvarchar(50),
     payment_installments nvarchar(20),
-    payment_value nvarchar(50)
+    payment_value nvarchar(max)
 );
 GO
 
@@ -96,7 +96,7 @@ CREATE TABLE bronze.products (
     product_weight_g nvarchar(20),
     product_length_cm nvarchar(20),
     product_height_cm nvarchar(20),
-    product_width_cm nvarchar(20)
+    product_width_cm nvarchar(max)
 );
 
 GO
