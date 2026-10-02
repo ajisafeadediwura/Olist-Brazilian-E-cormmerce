@@ -9,3 +9,13 @@ The dataset used for this project is the **Brazilian E-commerce Public Dataset b
 1. Download the raw CSV files from the Kaggle link above.
 2. Place the unzipped CSV files into your local directory (e.g., 'C:\sql\olist\').
 3. Run the 'database_setup.sql' script to build the Bronze, Silver, and Gold layers.
+
+
+### How to reproduce
+1. Download the dataset from Kaggle and place the CSV files in C:\sql\olist\
+   (or edit the paths in sql/00_setup/02_load_bronze_procedure.sql).
+2. Run 01_ddl_bronze.sql.
+3. Run 02_load_bronze_procedure.sql, then EXEC bronze.load_bronze;
+4. Load olist_order_reviews_dataset.csv with the SSMS Import Flat File wizard
+   into bronze.order_reviews (all columns as nvarchar, schema bronze).
+   See docs/04_methodology.md for why.
