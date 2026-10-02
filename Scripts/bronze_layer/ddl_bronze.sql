@@ -1,125 +1,179 @@
 /*
 ===============================================================================
-DDL Script: Create Bronze Tables
+Stored Procedure: Load Bronze Layer (Source -> Bronze)
 ===============================================================================
 Script Purpose:
-    This script creates tables in the 'bronze' schema, dropping existing tables 
-    if they already exist.
-	  Run this script to re-define the DDL structure of 'bronze' Tables
+    Loads raw data into the 'bronze' schema from the Olist CSV files.
+    - Truncates each bronze table before loading.
+    - Uses BULK INSERT with FORMAT = 'CSV' (handles quoted values) and
+      ROWTERMINATOR = '0x0a' (the files use \n line endings).
+
+Note on reviews:
+    olist_order_reviews_dataset.csv contains line breaks inside the comment text,
+    which BULK INSERT cannot read reliably. bronze.order_reviews is loaded once
+    with the SSMS Import Flat File wizard, so it is excluded from this procedure.
+
+Parameters:
+    None.
+
+Usage Example:
+    EXEC bronze.load_bronze;
 ===============================================================================
 */
+CREATE OR ALTER PROCEDURE bronze.load_bronze AS
+BEGIN
+	DECLARE @start_time DATETIME, @end_time DATETIME, @batch_start_time DATETIME, @batch_end_time DATETIME;
+	BEGIN TRY
+		SET @batch_start_time = GETDATE();
+		PRINT '================================================';
+		PRINT 'Loading Bronze Layer';
+		PRINT '================================================';
 
-IF OBJECT_ID('bronze.customers', 'U') IS NOT NULL
-    DROP TABLE bronze.customers;
-GO
+		PRINT '------------------------------------------------';
+		PRINT 'Loading Orders and Customers';
+		PRINT '------------------------------------------------';
 
-CREATE TABLE bronze.customers (
-    customer_id nvarchar(100),
-    customer_unique_id nvarchar(100),
-    customer_zip_code_prefix nvarchar(20),
-    customer_city nvarchar(200),
-    customer_state nvarchar(20)
-);
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.customers';
+		TRUNCATE TABLE bronze.customers;
+		PRINT '>> Inserting Data Into: bronze.customers';
+		BULK INSERT bronze.customers
+		FROM 'C:\sql\olist\olist_customers_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-IF OBJECT_ID('bronze.orders', 'U') IS NOT NULL
-    DROP TABLE bronze.orders;
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.orders';
+		TRUNCATE TABLE bronze.orders;
+		PRINT '>> Inserting Data Into: bronze.orders';
+		BULK INSERT bronze.orders
+		FROM 'C:\sql\olist\olist_orders_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-CREATE TABLE bronze.orders (
-    order_id nvarchar(100),
-    customer_id nvarchar(100), 
-    order_status nvarchar(50),
-    order_purchase_timestamp nvarchar(50),
-    order_approved_at nvarchar(50),
-    order_delivered_carrier_date nvarchar(50),
-    order_delivered_customer_date nvarchar(50),
-    order_estimated_delivery_date nvarchar(max)
-);
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.order_items';
+		TRUNCATE TABLE bronze.order_items;
+		PRINT '>> Inserting Data Into: bronze.order_items';
+		BULK INSERT bronze.order_items
+		FROM 'C:\sql\olist\olist_order_items_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-GO
+		PRINT '------------------------------------------------';
+		PRINT 'Loading Payments, Products, Sellers and Categories';
+		PRINT '------------------------------------------------';
 
-IF OBJECT_ID('bronze.order_items', 'U') IS NOT NULL
-    DROP TABLE bronze.order_items;
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.order_payments';
+		TRUNCATE TABLE bronze.order_payments;
+		PRINT '>> Inserting Data Into: bronze.order_payments';
+		BULK INSERT bronze.order_payments
+		FROM 'C:\sql\olist\olist_order_payments_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-CREATE TABLE bronze.order_items (
-    order_id nvarchar(100),
-    order_item_id nvarchar(20), 
-    product_id nvarchar(100),
-    seller_id nvarchar(100),
-    shipping_limit_date nvarchar(50),
-    price nvarchar(50),
-    freight_value nvarchar(100)
-);
-GO
+		/*
+		-- bronze.order_reviews is loaded with the Import Flat File wizard
+		-- (line breaks inside the comments break BULK INSERT), so it is skipped here.
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.order_reviews';
+		TRUNCATE TABLE bronze.order_reviews;
+		PRINT '>> Inserting Data Into: bronze.order_reviews';
+		BULK INSERT bronze.order_reviews
+		FROM 'C:\sql\olist\olist_order_reviews_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
+		*/
 
-IF OBJECT_ID('bronze.order_payments', 'U') IS NOT NULL
-    DROP TABLE bronze.order_payments;
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.products';
+		TRUNCATE TABLE bronze.products;
+		PRINT '>> Inserting Data Into: bronze.products';
+		BULK INSERT bronze.products
+		FROM 'C:\sql\olist\olist_products_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-CREATE TABLE bronze.order_payments (
-    order_id nvarchar(100), 
-    payment_sequential nvarchar(20),
-    payment_type nvarchar(50),
-    payment_installments nvarchar(20),
-    payment_value nvarchar(max)
-);
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.sellers';
+		TRUNCATE TABLE bronze.sellers;
+		PRINT '>> Inserting Data Into: bronze.sellers';
+		BULK INSERT bronze.sellers
+		FROM 'C:\sql\olist\olist_sellers_dataset.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-IF OBJECT_ID('bronze.order_reviews', 'U') IS NOT NULL
-    DROP TABLE bronze.order_reviews;
-GO
+		SET @start_time = GETDATE();
+		PRINT '>> Truncating Table: bronze.category_translation';
+		TRUNCATE TABLE bronze.category_translation;
+		PRINT '>> Inserting Data Into: bronze.category_translation';
+		BULK INSERT bronze.category_translation
+		FROM 'C:\sql\olist\product_category_name_translation.csv'
+		WITH (
+			FIRSTROW = 2,
+			FORMAT = 'CSV', ROWTERMINATOR = '0x0a',
+			TABLOCK
+		);
+		SET @end_time = GETDATE();
+		PRINT '>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS NVARCHAR) + ' seconds';
+		PRINT '>> -------------';
 
-CREATE TABLE bronze.order_reviews (
-    review_id nvarchar(100),
-    order_id nvarchar(100),
-    review_score nvarchar(20),
-    review_comment_title nvarchar(500), 
-    review_comment_message nvarchar(max),
-    review_creation_date nvarchar(50),
-    review_answer_timestamp nvarchar(50)
-);
-
-GO
-
-IF OBJECT_ID('bronze.products', 'U') IS NOT NULL
-    DROP TABLE bronze.products;
-GO
-
-CREATE TABLE bronze.products (
-    product_id nvarchar(100),
-    product_category_name nvarchar(200),
-    product_name_length nvarchar(20),
-    product_description_length nvarchar(20),
-    product_photos_qty nvarchar(20),
-    product_weight_g nvarchar(20),
-    product_length_cm nvarchar(20),
-    product_height_cm nvarchar(20),
-    product_width_cm nvarchar(max)
-);
-
-GO
-
-IF OBJECT_ID('bronze.sellers', 'U') IS NOT NULL
-    DROP TABLE bronze.sellers;
-GO
-
-CREATE TABLE bronze.sellers (
-    seller_id nvarchar(100),
-    seller_zip_code_prefix nvarchar(20),
-    seller_city nvarchar(200),
-    seller_state nvarchar(20)
-);
-
-GO
-
-IF OBJECT_ID('bronze.category_translation', 'U') IS NOT NULL
-    DROP TABLE bronze.category_translation;
-GO
-
-CREATE TABLE bronze.category_translation (
-    product_category_name nvarchar(200),
-    product_category_name_english nvarchar(200)
-);
+		SET @batch_end_time = GETDATE();
+		PRINT '==========================================';
+		PRINT 'Loading Bronze Layer is Completed';
+		PRINT '   - Total Load Duration: ' + CAST(DATEDIFF(SECOND, @batch_start_time, @batch_end_time) AS NVARCHAR) + ' seconds';
+		PRINT '==========================================';
+	END TRY
+	BEGIN CATCH
+		PRINT '==========================================';
+		PRINT 'ERROR OCCURRED DURING LOADING BRONZE LAYER';
+		PRINT 'Error Message: ' + ERROR_MESSAGE();
+		PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS NVARCHAR);
+		PRINT 'Error State: ' + CAST(ERROR_STATE() AS NVARCHAR);
+		PRINT '==========================================';
+	END CATCH
+END
 GO
